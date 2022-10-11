@@ -4,7 +4,7 @@ import ModuleComponent from './module.vue';
 export default defineModule({
 	id: 'schema-management-module',
 	name: 'Schema Management Module',
-	icon: 'box',
+	icon: 'schema',
 	routes: [
 		{
 			path: '',
