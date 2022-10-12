@@ -110,7 +110,7 @@ export default defineComponent({
 				});
 
 			const relations = selections.value
-				.map(c => relationsStore.getRelationsForCollection(c) as Relation[])
+				.map(c => (relationsStore.relations as Relation[]).filter(r => r.collection === c))
 				.flat()
 				.map((rel) => {
 					const r: Record<string, any> = rel;
@@ -190,18 +190,16 @@ export default defineComponent({
 						importProgress.value.push(`Importing relation "${relation.collection}-${relation.field}-${relation.related_collection}"`);
 						await api.post('/relations', relation);
 					}
-
-					await relationsStore.hydrate();
 				}
-
-				await collectionsStore.hydrate();
-				await fieldsStore.hydrate();
 
 				importProgress.value.push('Done');
 			} catch (err: any) {
 				const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
-				importProgress.value.push(message);
+				importProgress.value.push('Error: ' + message);
 			} finally {
+				await collectionsStore.hydrate();
+				await fieldsStore.hydrate();
+				await relationsStore.hydrate();
 				loading.value = false;
 			}
 		}
