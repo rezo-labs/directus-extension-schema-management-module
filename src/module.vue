@@ -87,7 +87,7 @@
 						<v-button secondary @click="showCode = false">
 							Close
 						</v-button>
-						<v-button @click="importSchemaFromCode">
+						<v-button v-if="isImport" @click="importSchemaFromCode">
 							Import
 						</v-button>
 					</v-card-actions>
@@ -132,6 +132,7 @@ export default defineComponent({
 
 		const showCode = ref(false);
 		const code = ref('');
+		const isImport = ref(false);
 
 		return {
 			collections,
@@ -142,6 +143,7 @@ export default defineComponent({
 			loading,
 			showCode,
 			code,
+			isImport,
 			exportSchema,
 			importSchema,
 			importSchemaFromCode,
@@ -199,6 +201,7 @@ export default defineComponent({
 			} else {
 				code.value = schemaContent;
 				showCode.value = true;
+				isImport.value = false;
 			}
 		}
 
@@ -223,6 +226,7 @@ export default defineComponent({
 			} else {
 				code.value = '';
 				showCode.value = true;
+				isImport.value = true;
 			}
 		}
 
