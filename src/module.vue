@@ -2,12 +2,43 @@
 	<private-view title="Schema Management">
 		<div class="schema-management">
 			<div class="action-buttons">
-				<v-button @click="exportSchema">
-					Export
-				</v-button>
-				<v-button @click="importSchema">
-					Import
-				</v-button>
+				<v-menu show-arrow>
+					<template #activator="{ toggle }">
+						<v-button @click="toggle">
+							Export
+						</v-button>
+					</template>
+
+					<v-list>
+						<v-list-item clickable @click="exportSchema(true)">
+							<v-list-item-icon><v-icon name="download" /></v-list-item-icon>
+							<v-list-item-content>Export to file</v-list-item-content>
+						</v-list-item>
+						<v-list-item clickable @click="exportSchema(false)">
+							<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
+							<v-list-item-content>Show code</v-list-item-content>
+						</v-list-item>
+					</v-list>
+				</v-menu>
+
+				<v-menu show-arrow>
+					<template #activator="{ toggle }">
+						<v-button @click="toggle">
+							Import
+						</v-button>
+					</template>
+
+					<v-list>
+						<v-list-item clickable @click="importSchema(true)">
+							<v-list-item-icon><v-icon name="upload" /></v-list-item-icon>
+							<v-list-item-content>Import from file</v-list-item-content>
+						</v-list-item>
+						<v-list-item clickable @click="importSchema(false)">
+							<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
+							<v-list-item-content>From code</v-list-item-content>
+						</v-list-item>
+					</v-list>
+				</v-menu>
 			</div>
 			<div>
 				<v-checkbox
@@ -29,7 +60,7 @@
 				</div>
 			</div>
 
-			<v-dialog v-model="openDialog">
+			<v-dialog v-model="showProgress">
 				<v-card>
 					<v-card-title>Import Status</v-card-title>
 					<v-card-text>
@@ -37,8 +68,27 @@
 					</v-card-text>
 
 					<v-card-actions>
-						<v-button :loading="loading" @click="openDialog = false">
+						<v-button :loading="loading" @click="showProgress = false">
 							Done
+						</v-button>
+					</v-card-actions>
+				</v-card>
+			</v-dialog>
+
+			<v-dialog v-model="showCode" @esc="showCode = false">
+				<v-card>
+					<v-card-title>Schema</v-card-title>
+
+					<v-card-text>
+						<v-textarea v-model="code" />
+					</v-card-text>
+
+					<v-card-actions>
+						<v-button secondary @click="showCode = false">
+							Close
+						</v-button>
+						<v-button @click="importSchemaFromCode">
+							Import
 						</v-button>
 					</v-card-actions>
 				</v-card>
@@ -76,23 +126,29 @@ export default defineComponent({
 		const selections = ref<string[]>([]);
 		const checkAll = ref(false);
 
-		const openDialog = ref(false);
+		const showProgress = ref(false);
 		const importProgress = ref<string[]>([]);
 		const loading = ref(false);
+
+		const showCode = ref(false);
+		const code = ref('');
 
 		return {
 			collections,
 			selections,
 			checkAll,
-			openDialog,
+			showProgress,
 			importProgress,
 			loading,
+			showCode,
+			code,
 			exportSchema,
 			importSchema,
+			importSchemaFromCode,
 			toggleAll,
 		};
 
-		function exportSchema() {
+		function exportSchema(download: boolean) {
 			const exportCollections = collections.value
 				.map(({ collection, meta }) => ({ collection, meta, schema: {} }))
 				.filter(c => selections.value.includes(c.collection));
@@ -129,35 +185,51 @@ export default defineComponent({
 
 			const schemaContent = JSON.stringify(schema, null, 4);
 
-			const element = document.createElement('a');
-			element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(schemaContent));
-			element.setAttribute('download', 'schema.json');
+			if (download) {
+				const element = document.createElement('a');
+				element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(schemaContent));
+				element.setAttribute('download', 'schema.json');
 
-			element.style.display = 'none';
-			document.body.appendChild(element);
+				element.style.display = 'none';
+				document.body.appendChild(element);
 
-			element.click();
+				element.click();
 
-			document.body.removeChild(element);
+				document.body.removeChild(element);
+			} else {
+				code.value = schemaContent;
+				showCode.value = true;
+			}
 		}
 
-		function importSchema() {
-			const input = document.createElement('input');
-			input.type = 'file';
+		function importSchema(fromFile: boolean) {
+			if (fromFile) {
+				const input = document.createElement('input');
+				input.type = 'file';
 
-			input.onchange = (e) => { 
-				const file = e.target.files[0];
+				input.onchange = (e) => { 
+					const file = e.target.files[0];
 
-				const reader = new FileReader();
-				reader.readAsText(file, 'UTF-8');
+					const reader = new FileReader();
+					reader.readAsText(file, 'UTF-8');
 
-				reader.onload = (readerEvent) => {
-					const dataModel = JSON.parse(readerEvent.target.result);
-					loadSchema(dataModel);
+					reader.onload = (readerEvent) => {
+						const dataModel = JSON.parse(readerEvent.target.result);
+						loadSchema(dataModel);
+					}
 				}
-			}
 
-			input.click();
+				input.click();
+			} else {
+				code.value = '';
+				showCode.value = true;
+			}
+		}
+
+		function importSchemaFromCode() {
+			showCode.value = false;
+			const dataModel = JSON.parse(code.value);
+			loadSchema(dataModel);
 		}
 
 		function toggleAll(checked: boolean) {
@@ -170,7 +242,7 @@ export default defineComponent({
 
 		async function loadSchema(dataModel: DataModel) {
 			loading.value = true;
-			openDialog.value = true;
+			showProgress.value = true;
 			importProgress.value = ['Start importing...'];
 
 			try {
