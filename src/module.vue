@@ -1,99 +1,112 @@
 <template>
 	<private-view title="Schema Management">
+		<template #title-outer:prepend>
+			<v-button class="header-icon" rounded disabled icon secondary>
+				<v-icon name="schema" />
+			</v-button>
+		</template>
+
+		<template #actions>
+			<v-menu show-arrow>
+				<template #activator="{ toggle }">
+					<v-button @click="toggle">
+						Export
+					</v-button>
+				</template>
+
+				<v-list>
+					<v-list-item clickable @click="exportSchema(true)">
+						<v-list-item-icon><v-icon name="download" /></v-list-item-icon>
+						<v-list-item-content>Export to file</v-list-item-content>
+					</v-list-item>
+					<v-list-item clickable @click="exportSchema(false)">
+						<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
+						<v-list-item-content>Show code</v-list-item-content>
+					</v-list-item>
+				</v-list>
+			</v-menu>
+
+			<v-menu show-arrow>
+				<template #activator="{ toggle }">
+					<v-button @click="toggle">
+						Import
+					</v-button>
+				</template>
+
+				<v-list>
+					<v-list-item clickable @click="importSchema(true)">
+						<v-list-item-icon><v-icon name="upload" /></v-list-item-icon>
+						<v-list-item-content>Import from file</v-list-item-content>
+					</v-list-item>
+					<v-list-item clickable @click="importSchema(false)">
+						<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
+						<v-list-item-content>From code</v-list-item-content>
+					</v-list-item>
+				</v-list>
+			</v-menu>
+		</template>
+
 		<div class="schema-management">
-			<div class="action-buttons">
-				<v-menu show-arrow>
-					<template #activator="{ toggle }">
-						<v-button @click="toggle">
-							Export
-						</v-button>
-					</template>
-
-					<v-list>
-						<v-list-item clickable @click="exportSchema(true)">
-							<v-list-item-icon><v-icon name="download" /></v-list-item-icon>
-							<v-list-item-content>Export to file</v-list-item-content>
-						</v-list-item>
-						<v-list-item clickable @click="exportSchema(false)">
-							<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
-							<v-list-item-content>Show code</v-list-item-content>
-						</v-list-item>
-					</v-list>
-				</v-menu>
-
-				<v-menu show-arrow>
-					<template #activator="{ toggle }">
-						<v-button @click="toggle">
-							Import
-						</v-button>
-					</template>
-
-					<v-list>
-						<v-list-item clickable @click="importSchema(true)">
-							<v-list-item-icon><v-icon name="upload" /></v-list-item-icon>
-							<v-list-item-content>Import from file</v-list-item-content>
-						</v-list-item>
-						<v-list-item clickable @click="importSchema(false)">
-							<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
-							<v-list-item-content>From code</v-list-item-content>
-						</v-list-item>
-					</v-list>
-				</v-menu>
-			</div>
+			<v-checkbox
+				v-model="checkAll"
+				@update:model-value="toggleAll"
+				label="Select all"
+				class="collection-item"
+			/>
 			<div>
 				<v-checkbox
-					v-model="checkAll"
-					@update:model-value="toggleAll"
-					label="Select all"
+					v-for="col in collections"
+					:key="col.collection"
+					v-model="selections"
+					:value="col.collection"
+					block
 					class="collection-item"
-				/>
-				<div>
-					<v-checkbox
-						v-for="col in collections"
-						:key="col.collection"
-						v-model="selections"
-						:value="col.collection"
-						:label="col.name"
-						block
-						class="collection-item"
-					/>
-				</div>
+				>
+					<span>
+						<v-icon
+							:color="col.meta?.hidden ? 'var(--foreground-subdued)' : col.color ?? 'var(--primary)'"
+							class="collection-icon"
+							:name="col.meta?.hidden ? 'visibility_off' : col.icon"
+						/>
+						<span class="collection-name" :class="{ hidden: col.meta?.hidden }">{{ col.name }}</span>
+					</span>
+				</v-checkbox>
 			</div>
-
-			<v-dialog v-model="showProgress">
-				<v-card>
-					<v-card-title>Import Status</v-card-title>
-					<v-card-text>
-						<div v-for="(progress, idx) in importProgress" :key="idx">{{ progress }}</div>
-					</v-card-text>
-
-					<v-card-actions>
-						<v-button :loading="loading" @click="showProgress = false">
-							Done
-						</v-button>
-					</v-card-actions>
-				</v-card>
-			</v-dialog>
-
-			<v-dialog v-model="showCode" @esc="showCode = false">
-				<v-card>
-					<v-card-title>Schema</v-card-title>
-
-					<v-card-text>
-						<v-textarea v-model="code" />
-					</v-card-text>
-
-					<v-card-actions>
-						<v-button secondary @click="showCode = false">
-							Close
-						</v-button>
-						<v-button v-if="isImport" @click="importSchemaFromCode">
-							Import
-						</v-button>
-					</v-card-actions>
-				</v-card>
-			</v-dialog>
 		</div>
+
+		<v-dialog v-model="showProgress">
+			<v-card>
+				<v-card-title>Import Status</v-card-title>
+				<v-card-text>
+					<div v-for="(progress, idx) in importProgress" :key="idx">{{ progress }}</div>
+				</v-card-text>
+
+				<v-card-actions>
+					<v-button :loading="loading" @click="showProgress = false">
+						Done
+					</v-button>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+
+		<v-dialog v-model="showCode" @esc="showCode = false">
+			<v-card>
+				<v-card-title>Schema</v-card-title>
+
+				<v-card-text>
+					<v-textarea v-model="code" />
+				</v-card-text>
+
+				<v-card-actions>
+					<v-button secondary @click="showCode = false">
+						Close
+					</v-button>
+					<v-button v-if="isImport" @click="importSchemaFromCode">
+						Import
+					</v-button>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
 	</private-view>
 </template>
 
@@ -287,15 +300,16 @@ export default defineComponent({
 .schema-management {
 	margin-left: var(--content-padding);
 
-	.action-buttons {
-		margin-bottom: 16px;
-		.v-button {
-			margin-right: 8px;
-		}
-	}
-
 	.collection-item {
 		margin-bottom: 8px;
+	}
+
+	.collection-icon {
+		margin-right: 8px;
+	}
+
+	.collection-name.hidden {
+		color: var(--foreground-subdued);
 	}
 }
 </style>
