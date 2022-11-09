@@ -94,7 +94,7 @@
 				<v-card-title>Schema</v-card-title>
 
 				<v-card-text>
-					<v-textarea v-model="code" />
+					<v-textarea v-model="code" placeholder="Insert schema here..." />
 				</v-card-text>
 
 				<v-card-actions>
@@ -297,6 +297,18 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
+.v-card {
+	--v-card-max-height: 100vh;
+	overflow: auto;
+}
+
+.v-textarea {
+	--v-textarea-height: 500px;
+	--v-textarea-max-height: 500px;
+	font-size: 12px;
+	line-height: 16px;
+}
+
 .schema-management {
 	margin-left: var(--content-padding);
 
