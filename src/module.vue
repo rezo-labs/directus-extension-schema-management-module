@@ -94,7 +94,14 @@
 				<v-card-title>Schema</v-card-title>
 
 				<v-card-text>
-					<v-textarea v-model="code" placeholder="Insert schema here..." />
+					<interface-input-code
+						placeholder="Insert schema here..."
+						language="JSON"
+						:line-number="false"
+						:disabled="!isImport"
+						:value="code"
+						@input="code = $event"
+					/>
 				</v-card-text>
 
 				<v-card-actions>
@@ -297,16 +304,22 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-.v-card {
+.container .v-card {
 	--v-card-max-height: 100vh;
 	overflow: auto;
+
+	@media (min-width: 720px) {
+		--v-card-min-width: 720px;
+	}
 }
 
-.v-textarea {
-	--v-textarea-height: 500px;
-	--v-textarea-max-height: 500px;
-	font-size: 12px;
-	line-height: 16px;
+.v-card-text {
+	.input-code {
+		:deep(.CodeMirror),
+		:deep(.CodeMirror-scroll) {
+			max-height: 500px;
+		}
+	}
 }
 
 .schema-management {
