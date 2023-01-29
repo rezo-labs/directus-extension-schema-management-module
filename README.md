@@ -7,7 +7,7 @@ Tired of creating the same collection all over again? This module extension can 
 - **Lightweight**. No third-party libraries.
 - **Pre-built Schemas**. Visit [directus-schema-collection](https://github.com/rezo-labs/directus-schema-collection) and choose any pre-built schemas that fit your use case to rapidly setup your Directus app.
 
-![](./screenshots/screenshot1.png)
+![](./screenshots/screenshot1.jpeg)
 
 # Installation
 ```
