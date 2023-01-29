@@ -128,12 +128,14 @@ export default defineComponent({
 			useCollectionsStore,
 			useFieldsStore,
 			useRelationsStore,
+			useNotificationsStore,
 		} = useStores();
 		const api = useApi();
 
 		const collectionsStore = useCollectionsStore();
 		const fieldsStore = useFieldsStore();
 		const relationsStore = useRelationsStore();
+		const notificationsStore = useNotificationsStore();
 
 		const collections = computed<Collection[]>(() => (
 			sortBy(
@@ -241,8 +243,17 @@ export default defineComponent({
 					reader.readAsText(file, 'UTF-8');
 
 					reader.onload = (readerEvent) => {
-						const dataModel = JSON.parse(readerEvent.target.result);
-						loadSchema(dataModel);
+						try {
+							const dataModel = JSON.parse(readerEvent.target.result);
+							loadSchema(dataModel);
+						} catch (err) {
+							if (err instanceof Error) {
+								notificationsStore.add({
+									title: err.message,
+									dialog: true,
+								});
+							}
+						}
 					}
 				}
 
@@ -255,9 +266,18 @@ export default defineComponent({
 		}
 
 		function importSchemaFromCode() {
-			showCode.value = false;
-			const dataModel = JSON.parse(code.value);
-			loadSchema(dataModel);
+			try {
+				const dataModel = JSON.parse(code.value);
+				showCode.value = false;
+				loadSchema(dataModel);
+			} catch (err) {
+				if (err instanceof Error) {
+					notificationsStore.add({
+						title: err.message,
+						dialog: true,
+					});
+				}
+			}
 		}
 
 		function toggleAll(checked: boolean) {
@@ -297,9 +317,11 @@ export default defineComponent({
 				const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
 				importProgress.value.push('Error: ' + message);
 			} finally {
-				await collectionsStore.hydrate();
-				await fieldsStore.hydrate();
-				await relationsStore.hydrate();
+				await Promise.all([
+					collectionsStore.hydrate(),
+					fieldsStore.hydrate(),
+					relationsStore.hydrate(),
+				]);
 				loading.value = false;
 			}
 		}
