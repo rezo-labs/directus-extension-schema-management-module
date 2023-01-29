@@ -53,24 +53,15 @@
 				label="Select all"
 				class="collection-item"
 			/>
-			<div>
-				<v-checkbox
-					v-for="col in collections"
+			<div class="collection-list">
+				<collection-item
+					v-for="col in rootCollections"
 					:key="col.collection"
-					v-model="selections"
-					:value="col.collection"
-					block
-					class="collection-item"
-				>
-					<span>
-						<v-icon
-							:color="col.meta?.hidden ? 'var(--foreground-subdued)' : col.color ?? 'var(--primary)'"
-							class="collection-icon"
-							:name="col.meta?.hidden ? 'visibility_off' : col.icon"
-						/>
-						<span class="collection-name" :class="{ hidden: col.meta?.hidden }">{{ col.name }}</span>
-					</span>
-				</v-checkbox>
+					:collection="col"
+					:collections="collections"
+					:selections="selections"
+					@update:selections="selections = $event"
+				/>
 			</div>
 		</div>
 
@@ -121,6 +112,8 @@
 import { computed, defineComponent, ref } from 'vue';
 import { useStores, useApi } from '@directus/extensions-sdk';
 import { Collection, Field, Relation } from '@directus/shared/types';
+import { sortBy } from 'lodash';
+import CollectionItem from './collection-item.vue';
 
 type DataModel = {
 	collections?: Collection[];
@@ -129,6 +122,7 @@ type DataModel = {
 }
 
 export default defineComponent({
+	components: { CollectionItem },
 	setup() {
 		const {
 			useCollectionsStore,
@@ -141,7 +135,16 @@ export default defineComponent({
 		const fieldsStore = useFieldsStore();
 		const relationsStore = useRelationsStore();
 
-		const collections = computed(() => (collectionsStore.allCollections as Collection[]).filter(c => c.schema !== null));
+		const collections = computed<Collection[]>(() => (
+			sortBy(
+				collectionsStore.allCollections.filter((c: Collection) => c.meta),
+				['meta.sort', 'collection']
+			)
+		));
+
+		const rootCollections = computed(() => {
+			return collections.value.filter((collection) => !collection.meta?.group);
+		});
 
 		const selections = ref<string[]>([]);
 		const checkAll = ref(false);
@@ -156,6 +159,7 @@ export default defineComponent({
 
 		return {
 			collections,
+			rootCollections,
 			selections,
 			checkAll,
 			showProgress,
@@ -258,7 +262,7 @@ export default defineComponent({
 
 		function toggleAll(checked: boolean) {
 			if (checked) {
-				selections.value = collections.value.map(c => c.collection);
+				selections.value = collections.value.filter(c => c.schema !== null).map(c => c.collection);
 			} else {
 				selections.value = [];
 			}
@@ -323,18 +327,11 @@ export default defineComponent({
 }
 
 .schema-management {
-	margin-left: var(--content-padding);
+	padding: var(--content-padding);
+	padding-top: 0;
 
-	.collection-item {
-		margin-bottom: 8px;
-	}
-
-	.collection-icon {
-		margin-right: 8px;
-	}
-
-	.collection-name.hidden {
-		color: var(--foreground-subdued);
+	.collection-list {
+		margin-top: 20px;
 	}
 }
 </style>
