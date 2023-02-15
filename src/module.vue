@@ -111,7 +111,10 @@
 		</v-dialog>
 
 		<v-dialog v-model="fromPresets">
-			<presets @close="fromPresets = false" />
+			<presets
+				@close="fromPresets = false"
+				@import="loadSchema($event)"
+			/>
 		</v-dialog>
 	</private-view>
 </template>
@@ -123,12 +126,7 @@ import { Collection, Field, Relation } from '@directus/shared/types';
 import { sortBy } from 'lodash';
 import CollectionItem from './collection-item.vue';
 import Presets from './presets.vue';
-
-type DataModel = {
-	collections?: Collection[];
-	fields?: Field[];
-	relations?: Relation[];
-}
+import { DataModel } from './types';
 
 export default defineComponent({
 	components: { CollectionItem, Presets },
@@ -186,6 +184,7 @@ export default defineComponent({
 			importSchema,
 			importSchemaFromCode,
 			toggleAll,
+			loadSchema,
 		};
 
 		function exportSchema(download: boolean) {

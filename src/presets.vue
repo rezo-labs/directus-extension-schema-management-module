@@ -3,26 +3,33 @@
     <v-card-title>Select presets</v-card-title>
 
     <v-card-text>
-      <v-checkbox
-        v-for="preset in presets"
-        :key="preset.preset"
-        :value="preset.preset"
-        v-model="selections"
-        block
-        class="preset-item"
-      >
-        <span>
-          <v-icon :name="preset.icon"/>
-          <span>{{ preset.name }}</span>
-        </span>
-      </v-checkbox>
+      <v-progress-circular v-if="loadingPresets" class="preset-loading" indeterminate />
+
+      <template v-else>
+        <v-checkbox
+          v-for="preset in presets"
+          :key="preset.preset"
+          :value="preset.preset"
+          v-model="selections"
+          block
+          class="preset-item"
+        >
+          <div class="preset-title">
+            <v-icon :name="preset.icon"/>
+            <div>
+              <div>{{ preset.name }}</div>
+              <div class="preset-description">{{ preset.description }}</div>
+            </div>
+          </div>
+        </v-checkbox>
+      </template>
     </v-card-text>
 
     <v-card-actions>
       <v-button secondary @click="$emit('close')">
         Close
       </v-button>
-      <v-button @click="loadSchema">
+      <v-button @click="importSchema">
         Import
       </v-button>
     </v-card-actions>
@@ -31,10 +38,13 @@
 
 <script lang="ts">
 import { defineComponent, ref } from "vue";
+import { DataModel } from './types';
 
 export default defineComponent({
-  setup() {
+  emits: ['close', 'import'],
+  setup(props, { emit }) {
     const presets = ref([]);
+    const loadingPresets = ref(true);
     const error = ref(false);
     const selections = ref([]);
 
@@ -45,20 +55,39 @@ export default defineComponent({
       })
       .catch((err) => {
         error.value = true;
+      })
+      .finally(() => {
+        loadingPresets.value = false;
       });
 
     return {
       presets,
+      loadingPresets,
       error,
       selections,
-      loadSchema,
+      importSchema,
     };
 
-    async function loadSchema() {
-      for (const preset of selections.value) {
-        const res = await fetch(`https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/${preset}/all.json`);
-        const data = await res.json();
-        const schema = JSON.parse(window.atob(data.content));
+    async function importSchema() {
+      const combinedSchema: DataModel = {
+        collections: [],
+        fields: [],
+        relations: [],
+      };
+      try {
+        for (const preset of selections.value) {
+          const res = await fetch(`https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/${preset}/all.json`);
+          const data = await res.json();
+          const schema: DataModel = JSON.parse(window.atob(data.content));
+          combinedSchema.collections?.push(...(schema.collections || []));
+          combinedSchema.fields?.push(...(schema.fields || []));
+          combinedSchema.relations?.push(...(schema.relations || []));
+        }
+
+        emit('close');
+        emit('import', combinedSchema);
+      } catch (err) {
+        console.log(err);
       }
     }
   },
@@ -66,11 +95,26 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
+.preset-loading {
+  margin: 32px auto;
+}
+
 .preset-item {
   margin-bottom: 8px;
 
   .v-icon {
     margin-right: 8px;
+  }
+}
+
+.preset-title {
+  display: flex;
+  align-items: center;
+
+  .preset-description {
+    color: var(--foreground-subdued);
+    font-size: 12px;
+    line-height: 16px;
   }
 }
 </style>
