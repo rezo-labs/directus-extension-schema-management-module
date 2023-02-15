@@ -17,7 +17,7 @@
 				<v-list>
 					<v-list-item clickable @click="exportSchema(true)">
 						<v-list-item-icon><v-icon name="download" /></v-list-item-icon>
-						<v-list-item-content>Export to file</v-list-item-content>
+						<v-list-item-content>Download file</v-list-item-content>
 					</v-list-item>
 					<v-list-item clickable @click="exportSchema(false)">
 						<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
@@ -36,11 +36,15 @@
 				<v-list>
 					<v-list-item clickable @click="importSchema(true)">
 						<v-list-item-icon><v-icon name="upload" /></v-list-item-icon>
-						<v-list-item-content>Import from file</v-list-item-content>
+						<v-list-item-content>Upload file</v-list-item-content>
 					</v-list-item>
 					<v-list-item clickable @click="importSchema(false)">
 						<v-list-item-icon><v-icon name="code" /></v-list-item-icon>
 						<v-list-item-content>From code</v-list-item-content>
+					</v-list-item>
+					<v-list-item clickable @click="fromPresets = true">
+						<v-list-item-icon><v-icon name="format_list_bulleted" /></v-list-item-icon>
+						<v-list-item-content>From presets</v-list-item-content>
 					</v-list-item>
 				</v-list>
 			</v-menu>
@@ -105,6 +109,13 @@
 				</v-card-actions>
 			</v-card>
 		</v-dialog>
+
+		<v-dialog v-model="fromPresets">
+			<presets
+				@close="fromPresets = false"
+				@import="loadSchema($event)"
+			/>
+		</v-dialog>
 	</private-view>
 </template>
 
@@ -114,15 +125,11 @@ import { useStores, useApi } from '@directus/extensions-sdk';
 import { Collection, Field, Relation } from '@directus/shared/types';
 import { sortBy } from 'lodash';
 import CollectionItem from './collection-item.vue';
-
-type DataModel = {
-	collections?: Collection[];
-	fields?: Field[];
-	relations?: Relation[];
-}
+import Presets from './presets.vue';
+import { DataModel } from './types';
 
 export default defineComponent({
-	components: { CollectionItem },
+	components: { CollectionItem, Presets },
 	setup() {
 		const {
 			useCollectionsStore,
@@ -159,6 +166,8 @@ export default defineComponent({
 		const code = ref('');
 		const isImport = ref(false);
 
+		const fromPresets = ref(false);
+
 		return {
 			collections,
 			rootCollections,
@@ -170,10 +179,12 @@ export default defineComponent({
 			showCode,
 			code,
 			isImport,
+			fromPresets,
 			exportSchema,
 			importSchema,
 			importSchemaFromCode,
 			toggleAll,
+			loadSchema,
 		};
 
 		function exportSchema(download: boolean) {
