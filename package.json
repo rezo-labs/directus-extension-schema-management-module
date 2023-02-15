@@ -1,6 +1,6 @@
 {
 	"name": "directus-extension-schema-management-module",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "UI to easily share schema between Directus apps",
 	"author": {
 		"email": "duydvu98@gmail.com",
