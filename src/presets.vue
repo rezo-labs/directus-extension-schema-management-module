@@ -5,6 +5,10 @@
     <v-card-text>
       <v-progress-circular v-if="loadingPresets" class="preset-loading" indeterminate />
 
+      <v-notice v-else-if="error" type="danger">
+        {{ error }}
+      </v-notice>
+
       <template v-else>
         <v-checkbox
           v-for="preset in presets"
@@ -45,20 +49,10 @@ export default defineComponent({
   setup(props, { emit }) {
     const presets = ref([]);
     const loadingPresets = ref(true);
-    const error = ref(false);
+    const error = ref<any>(null);
     const selections = ref([]);
 
-    fetch('https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/config.json')
-      .then((res) => res.json())
-      .then((data) => {
-        presets.value = JSON.parse(window.atob(data.content));
-      })
-      .catch((err) => {
-        error.value = true;
-      })
-      .finally(() => {
-        loadingPresets.value = false;
-      });
+    loadPresets();
 
     return {
       presets,
@@ -67,6 +61,22 @@ export default defineComponent({
       selections,
       importSchema,
     };
+
+    async function loadPresets() {
+      try {
+        const res = await fetch('https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/config.json');
+        if (!res.ok) {
+          throw new Error('Something went wrong');
+        }
+        
+        const data = await res.json();
+        presets.value = JSON.parse(window.atob(data.content));
+      } catch (err) {
+        error.value = err;
+      } finally {
+        loadingPresets.value = false;
+      }
+    }
 
     async function importSchema() {
       const combinedSchema: DataModel = {
@@ -77,6 +87,10 @@ export default defineComponent({
       try {
         for (const preset of selections.value) {
           const res = await fetch(`https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/${preset}/all.json`);
+          if (!res.ok) {
+            throw new Error('Something went wrong');
+          }
+
           const data = await res.json();
           const schema: DataModel = JSON.parse(window.atob(data.content));
           combinedSchema.collections?.push(...(schema.collections || []));
@@ -87,7 +101,7 @@ export default defineComponent({
         emit('close');
         emit('import', combinedSchema);
       } catch (err) {
-        console.log(err);
+        error.value = err;
       }
     }
   },
