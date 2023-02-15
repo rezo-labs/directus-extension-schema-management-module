@@ -33,7 +33,7 @@
       <v-button secondary @click="$emit('close')">
         Close
       </v-button>
-      <v-button @click="importSchema">
+      <v-button :loading="importingSchema" @click="importSchema">
         Import
       </v-button>
     </v-card-actions>
@@ -51,6 +51,7 @@ export default defineComponent({
     const loadingPresets = ref(true);
     const error = ref<any>(null);
     const selections = ref([]);
+    const importingSchema = ref(false);
 
     loadPresets();
 
@@ -59,6 +60,7 @@ export default defineComponent({
       loadingPresets,
       error,
       selections,
+      importingSchema,
       importSchema,
     };
 
@@ -79,6 +81,7 @@ export default defineComponent({
     }
 
     async function importSchema() {
+      importingSchema.value = true;
       const combinedSchema: DataModel = {
         collections: [],
         fields: [],
@@ -102,6 +105,8 @@ export default defineComponent({
         emit('import', combinedSchema);
       } catch (err) {
         error.value = err;
+      } finally {
+        importingSchema.value = false;
       }
     }
   },
