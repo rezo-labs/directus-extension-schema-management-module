@@ -1,32 +1,48 @@
 <template>
   <v-card>
-    <v-card-title>Select presets</v-card-title>
+    <v-card-title>Presets</v-card-title>
 
     <v-card-text>
-      <v-progress-circular v-if="loadingPresets" class="preset-loading" indeterminate />
+      <div class="preset-repo">
+        <div>Preset Repository</div>
+        <div class="preset-repo-input">
+          <v-input v-model="presetRepo" placeholder="rezo-labs/directus-schema-presets" />
+          <v-button icon x-large :loading="loadingPresets" @click="loadPresets">
+            <v-icon name="refresh" />
+          </v-button>
+        </div>
+        <small class="type-note">Github Repository containing your presets. In "{owner}/{repo}" format.</small>
+        <v-input v-model="presetRepoToken" type="password" small />
+        <small class="type-note">Your Github Personal Access Token, for private repositories.</small>
+      </div>
 
-      <v-notice v-else-if="error" type="danger">
-        {{ error }}
-      </v-notice>
+      <div>
+        <div>Select Presets</div>
+        <v-progress-circular v-if="loadingPresets" class="preset-loading" indeterminate />
 
-      <template v-else>
-        <v-checkbox
-          v-for="preset in presets"
-          :key="preset.preset"
-          :value="preset.preset"
-          v-model="selections"
-          block
-          class="preset-item"
-        >
-          <div class="preset-title">
-            <v-icon :name="preset.icon"/>
-            <div>
-              <div>{{ preset.name }}</div>
-              <div class="preset-description">{{ preset.description }}</div>
+        <v-notice v-else-if="error" type="danger">
+          {{ error }}
+        </v-notice>
+
+        <template v-else>
+          <v-checkbox
+            v-for="preset in presets"
+            :key="preset.preset"
+            :value="preset.preset"
+            v-model="selections"
+            block
+            class="preset-item"
+          >
+            <div class="preset-title">
+              <v-icon :name="preset.icon"/>
+              <div>
+                <div>{{ preset.name }}</div>
+                <div class="preset-description">{{ preset.description }}</div>
+              </div>
             </div>
-          </div>
-        </v-checkbox>
-      </template>
+          </v-checkbox>
+        </template>
+      </div>
     </v-card-text>
 
     <v-card-actions>
@@ -41,32 +57,64 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from "vue";
+import { computed, defineComponent, ref, watch } from "vue";
 import { DataModel } from './types';
 
 export default defineComponent({
   emits: ['close', 'import'],
   setup(props, { emit }) {
+    const presetRepo = ref(window.localStorage.getItem('SCHEMA_MANAGEMENT_MODULE__PRESET_REPO') || 'rezo-labs/directus-schema-presets');
+    const presetRepoToken = ref(window.localStorage.getItem('SCHEMA_MANAGEMENT_MODULE__PRESET_REPO_TOKEN') || '');
     const presets = ref([]);
-    const loadingPresets = ref(true);
+    const loadingPresets = ref(false);
     const error = ref<any>(null);
     const selections = ref([]);
     const importingSchema = ref(false);
 
+    const headers = computed(() => {
+      const commonHeaders = {
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      };
+      if (presetRepoToken.value) {
+        return {
+          ...commonHeaders,
+          Authorization: `Bearer ${presetRepoToken.value}`,
+        };
+      }
+      return commonHeaders;
+    });
+
     loadPresets();
 
+    watch(presetRepo, () => {
+      window.localStorage.setItem('SCHEMA_MANAGEMENT_MODULE__PRESET_REPO', presetRepo.value);
+    });
+
+    watch(presetRepoToken, () => {
+      window.localStorage.setItem('SCHEMA_MANAGEMENT_MODULE__PRESET_REPO_TOKEN', presetRepoToken.value);
+    });
+
     return {
+      presetRepo,
+      presetRepoToken,
       presets,
       loadingPresets,
       error,
       selections,
       importingSchema,
+      loadPresets,
       importSchema,
     };
 
     async function loadPresets() {
       try {
-        const res = await fetch('https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/config.json');
+        loadingPresets.value = true;
+        error.value = null;
+
+        const res = await fetch(`https://api.github.com/repos/${presetRepo.value}/contents/config.json`, {
+          headers: headers.value,
+        });
         if (!res.ok) {
           throw new Error('Something went wrong');
         }
@@ -89,7 +137,9 @@ export default defineComponent({
       };
       try {
         for (const preset of selections.value) {
-          const res = await fetch(`https://api.github.com/repos/rezo-labs/directus-schema-presets/contents/${preset}/all.json`);
+          const res = await fetch(`https://api.github.com/repos/${presetRepo.value}/contents/${preset}/all.json`, {
+            headers: headers.value,
+          });
           if (!res.ok) {
             throw new Error('Something went wrong');
           }
@@ -114,6 +164,18 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
+.preset-repo {
+  margin-bottom: 16px;
+}
+
+.preset-repo-input {
+  display: flex;
+
+  .v-button {
+    margin-left: 8px;
+  }
+}
+
 .preset-loading {
   margin: 32px auto;
 }
