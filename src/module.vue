@@ -116,6 +116,11 @@
 				@import="loadSchema($event)"
 			/>
 		</v-dialog>
+
+		<import-wizard
+			:active="showImportWizard"
+			:data-model="dataModel"
+		/>
 	</private-view>
 </template>
 
@@ -126,10 +131,11 @@ import { Collection, Field, Relation } from '@directus/shared/types';
 import { sortBy } from 'lodash';
 import CollectionItem from './collection-item.vue';
 import Presets from './presets.vue';
+import ImportWizard from './import-wizard.vue';
 import { DataModel } from './types';
 
 export default defineComponent({
-	components: { CollectionItem, Presets },
+	components: { CollectionItem, Presets, ImportWizard },
 	setup() {
 		const {
 			useCollectionsStore,
@@ -168,6 +174,9 @@ export default defineComponent({
 
 		const fromPresets = ref(false);
 
+		const showImportWizard = ref(false);
+		const dataModel = ref<DataModel>({});
+
 		return {
 			collections,
 			rootCollections,
@@ -180,6 +189,8 @@ export default defineComponent({
 			code,
 			isImport,
 			fromPresets,
+			showImportWizard,
+			dataModel,
 			exportSchema,
 			importSchema,
 			importSchemaFromCode,
