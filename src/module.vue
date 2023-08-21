@@ -117,10 +117,7 @@
 			/>
 		</v-dialog>
 
-		<import-wizard
-			:active="showImportWizard"
-			:data-model="dataModel"
-		/>
+		<import-wizard ref="importWizard" />
 	</private-view>
 </template>
 
@@ -174,8 +171,7 @@ export default defineComponent({
 
 		const fromPresets = ref(false);
 
-		const showImportWizard = ref(false);
-		const dataModel = ref<DataModel>({});
+		const importWizard = ref(null);
 
 		return {
 			collections,
@@ -189,8 +185,7 @@ export default defineComponent({
 			code,
 			isImport,
 			fromPresets,
-			showImportWizard,
-			dataModel,
+			importWizard,
 			exportSchema,
 			importSchema,
 			importSchemaFromCode,
@@ -311,41 +306,7 @@ export default defineComponent({
 		}
 
 		async function loadSchema(dataModel: DataModel) {
-			loading.value = true;
-			showProgress.value = true;
-			importProgress.value = ['Start importing...'];
-
-			try {
-				if (dataModel.collections instanceof Array && dataModel.fields instanceof Array) {
-					for (const collection of dataModel.collections) {
-						importProgress.value.push(`Importing collection "${collection.collection}"`);
-						const fields = dataModel.fields.filter(f => f.collection === collection.collection);
-						await api.post('/collections', {
-							...collection,
-							fields,
-						});
-					}
-				}
-
-				if (dataModel.relations instanceof Array) {
-					for (const relation of dataModel.relations) {
-						importProgress.value.push(`Importing relation "${relation.collection}-${relation.field}-${relation.related_collection}"`);
-						await api.post('/relations', relation);
-					}
-				}
-
-				importProgress.value.push('Done');
-			} catch (err: any) {
-				const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
-				importProgress.value.push('Error: ' + message);
-			} finally {
-				await Promise.all([
-					collectionsStore.hydrate(),
-					fieldsStore.hydrate(),
-					relationsStore.hydrate(),
-				]);
-				loading.value = false;
-			}
+			importWizard.value?.resetState(dataModel);
 		}
 	}
 });
