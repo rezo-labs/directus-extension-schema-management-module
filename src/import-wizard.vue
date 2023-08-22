@@ -1,34 +1,71 @@
 <template>
-  <v-dialog v-model="active">
+  <v-dialog :model-value="active" @update:model-value="!loading && (active = $event)">
     <v-card>
-      <v-card-title>Schema</v-card-title>
+      <template v-if="state === State.CONFIGURE">
+        <v-card-title>Configure how you want to import the data model</v-card-title>
 
-      <v-card-text v-if="state === State.CONFIGURE">
-        <v-checkbox
-          block
-          label="Stop on error"
-          :model-value="stopOnError"
-          @update:model-value="stopOnError = $event"
-        />
-      </v-card-text>
+        <v-card-text>
+          <h1>Mode</h1>
+          <v-radio
+            v-for="m in MODES"
+            :key="m.value"
+            block
+            :value="m.value"
+            :label="m.label"
+            v-model="mode"
+            v-tooltip.right="m.tooltip"
+          />
+        </v-card-text>
 
-      <v-card-text>
-        <div v-for="(progress, idx) in importProgress" :key="idx">{{ progress }}</div>
-      </v-card-text>
+        <v-card-text>
+          <h1>Options</h1>
+          <v-checkbox
+            block
+            label="Stop on error"
+            :model-value="stopOnError"
+            @update:model-value="stopOnError = $event"
+          />
+        </v-card-text>
 
-      <v-card-actions>
-        <v-button v-if="state === State.CONFIGURE" secondary @click="dispatch(Action.BACK)">
-          Back
-        </v-button>
+        <v-card-actions>
+          <v-button v-if="state === State.CONFIGURE" secondary @click="dispatch(Action.BACK)">
+            Back
+          </v-button>
+          <v-button v-if="state === State.CONFIGURE" @click="dispatch(Action.NEXT)">
+            Next
+          </v-button>
+        </v-card-actions>
+      </template>
 
-        <v-button v-if="state === State.CONFIGURE" @click="dispatch(Action.IMPORT)">
-          Import
-        </v-button>
+      <template v-if="state === State.SELECT">
+        <v-card-title>Select the data model you want to import</v-card-title>
 
-        <v-button v-if="state === State.IMPORTING" :loading="loading" @click="active = false">
-          Done
-        </v-button>
-      </v-card-actions>
+        <v-card-text>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-button v-if="state === State.SELECT" secondary @click="dispatch(Action.BACK)">
+            Back
+          </v-button>
+          <v-button v-if="state === State.SELECT" @click="dispatch(Action.IMPORT)">
+            Import
+          </v-button>
+        </v-card-actions>
+      </template>
+
+      <template v-if="state === State.IMPORTING">
+        <v-card-title>Importing</v-card-title>
+
+        <v-card-text>
+          <div v-for="(progress, idx) in importProgress" :key="idx">{{ progress }}</div>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-button v-if="state === State.IMPORTING" :loading="loading" @click="active = false">
+            Done
+          </v-button>
+        </v-card-actions>
+      </template>
     </v-card>
   </v-dialog>
 </template>
@@ -40,16 +77,36 @@ import { DataModel } from './types';
 
 enum State {
   CONFIGURE = 'configure',
+  SELECT = 'select',
   IMPORTING = 'importing',
 }
 
 enum Action {
   BACK = 'back',
+  NEXT = 'next',
   IMPORT = 'import',
+}
+
+enum Mode {
+  NEW_ONLY = 'new_only',
+  NEW_AND_PATCH = 'new_and_patch',
 }
 
 export default defineComponent({
   setup() {
+    const MODES = [
+      {
+        value: Mode.NEW_ONLY,
+        label: 'Only create new collections',
+        tooltip: 'This mode will only create new collections along with their fields and relations. If a collection already exists, an error will be thrown.',
+      },
+      {
+        value: Mode.NEW_AND_PATCH,
+        label: 'Create new collections and patch existing ones',
+        tooltip: 'This mode will create new collections along with their fields and relations. If a collection already exists, it will be patched with the new fields and relations. Any existing fields or relations will be left untouched.',
+      },
+    ];
+
     const {
       useCollectionsStore,
       useFieldsStore,
@@ -66,13 +123,14 @@ export default defineComponent({
 
     const dataModel = ref<DataModel>({});
 
-    const mode = ref<'new' | 'patch'>('new');
+    const mode = ref<Mode>(Mode.NEW_ONLY);
     const stopOnError = ref(false);
 
     const importProgress = ref<string[]>([]);
     const loading = ref(false);
 
     return {
+      MODES,
       State,
       Action,
       active,
@@ -97,6 +155,13 @@ export default defineComponent({
       if (state.value === State.CONFIGURE) {
         if (action === Action.BACK) {
           active.value = false;
+        } else if (action === Action.NEXT) {
+          state.value = State.SELECT;
+        }
+      }
+      if (state.value === State.SELECT) {
+        if (action === Action.BACK) {
+          state.value = State.CONFIGURE;
         } else if (action === Action.IMPORT) {
           state.value = State.IMPORTING;
           loadSchema();
