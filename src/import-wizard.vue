@@ -29,7 +29,7 @@
 
         <v-card-actions>
           <v-button v-if="state === State.CONFIGURE" secondary @click="dispatch(Action.BACK)">
-            Back
+            Cancel
           </v-button>
           <v-button v-if="state === State.CONFIGURE" @click="dispatch(Action.NEXT)">
             Next
@@ -38,9 +38,25 @@
       </template>
 
       <template v-if="state === State.SELECT">
-        <v-card-title>Select the data model you want to import</v-card-title>
+        <v-card-title>Select the collections you want to import</v-card-title>
 
         <v-card-text>
+          <v-checkbox
+            v-for="collection in dataModel.collections"
+            block
+            class="collection-item"
+            :value="collection.collection"
+            v-model="selections"
+          >
+            <span>
+              <v-icon
+                :color="collection.meta?.hidden ? 'var(--foreground-subdued)' : collection.meta?.color ?? 'var(--primary)'"
+                class="collection-icon"
+                :name="collection.meta?.hidden ? 'visibility_off' : (collection.meta?.icon || 'label')"
+              />
+              <span class="collection-name" :class="{ hidden: collection.meta?.hidden }">{{ collection.meta?.collection }}</span>
+            </span>
+          </v-checkbox>
         </v-card-text>
 
         <v-card-actions>
@@ -98,7 +114,7 @@ export default defineComponent({
       {
         value: Mode.NEW_ONLY,
         label: 'Only create new collections',
-        tooltip: 'This mode will only create new collections along with their fields and relations. If a collection already exists, an error will be thrown.',
+        tooltip: 'This mode will only create new collections along with their fields and relations. If a collection already exists, an error will be thrown. Disable the option "Stop on error" to continue importing.',
       },
       {
         value: Mode.NEW_AND_PATCH,
@@ -122,6 +138,7 @@ export default defineComponent({
     const state = ref<State>(State.CONFIGURE);
 
     const dataModel = ref<DataModel>({});
+    const selections = ref<string[]>([]);
 
     const mode = ref<Mode>(Mode.NEW_ONLY);
     const stopOnError = ref(false);
@@ -135,6 +152,8 @@ export default defineComponent({
       Action,
       active,
       state,
+      dataModel,
+      selections,
       mode,
       stopOnError,
       importProgress,
@@ -146,7 +165,13 @@ export default defineComponent({
     function resetState(dm: DataModel) {
       active.value = true;
       state.value = State.CONFIGURE;
+
       dataModel.value = dm;
+      selections.value = dm.collections?.map(c => c.collection) || [];
+
+      mode.value = Mode.NEW_ONLY;
+      stopOnError.value = false;
+
       importProgress.value = [];
       loading.value = false;
     }
@@ -225,4 +250,24 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
+.v-card {
+	--v-card-max-height: 100vh;
+	overflow: auto;
+
+	@media (min-width: 720px) {
+		--v-card-min-width: 720px;
+	}
+}
+
+.collection-item {
+  margin-bottom: 8px;
+}
+
+.collection-icon {
+  margin-right: 8px;
+}
+
+.collection-name.hidden {
+  color: var(--foreground-subdued);
+}
 </style>
