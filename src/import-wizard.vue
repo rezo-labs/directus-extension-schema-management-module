@@ -89,6 +89,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useStores, useApi } from '@directus/extensions-sdk';
+import { Collection, Field, Relation } from '@directus/shared/types';
 import { DataModel } from './types';
 
 enum State {
@@ -194,41 +195,88 @@ export default defineComponent({
       }
     }
 
+    async function importCollection(collection: Collection, fields: Field[]) {
+      importProgress.value.push(`Importing collection "${collection.collection}"`);
+
+      try {
+        await api.post('/collections', {
+          ...collection,
+          fields,
+        });
+      } catch (err: any) {
+        if (stopOnError.value) {
+          throw err;
+        } else {
+          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
+          importProgress.value.push('Error: ' + message);
+        }
+      }
+    }
+
+    async function importField(field: Field) {
+      importProgress.value.push(`Importing field "${field.collection}-${field.field}"`);
+
+      try {
+        await api.post(`/fields/${field.collection}`, field);
+      } catch (err: any) {
+        if (stopOnError.value) {
+          throw err;
+        } else {
+          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
+          importProgress.value.push('Error: ' + message);
+        }
+      }
+    }
+
+    async function importRelation(relation: Relation) {
+      importProgress.value.push(`Importing relation "${relation.collection}-${relation.field}-${relation.related_collection}"`);
+
+      try {
+        await api.post('/relations', relation);
+      } catch (err: any) {
+        if (stopOnError.value) {
+          throw err;
+        } else {
+          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
+          importProgress.value.push('Error: ' + message);
+        }
+      }
+    }
+
     async function loadSchema() {
       loading.value = true;
       importProgress.value = ['Start importing...'];
       const dm = dataModel.value;
+      const collections = dm.collections?.filter(c => selections.value.includes(c.collection)) || [];
+      const fields = dm.fields || [];
+      const relations = dm.relations || [];
 
       try {
-        if (dm.collections instanceof Array && dm.fields instanceof Array) {
-          for (const collection of dm.collections) {
-            importProgress.value.push(`Importing collection "${collection.collection}"`);
-            const fields = dm.fields.filter(f => f.collection === collection.collection);
+        if (mode.value === Mode.NEW_ONLY) {
+          for (const collection of collections) {
+            await importCollection(collection, fields.filter(f => f.collection === collection.collection));
+          }
+        } else if (mode.value === Mode.NEW_AND_PATCH) {
+          const allCollections: Collection[] = collectionsStore.allCollections;
 
-            try {
-              await api.post('/collections', {
-                ...collection,
-                fields,
-              });
-            } catch (err: any) {
-              if (stopOnError.value) {
-                throw err;
-              }
+          for (const collection of collections) {
+            if (!allCollections.some(c => c.collection === collection.collection)) {
+              await importCollection(collection, fields.filter(f => f.collection === collection.collection));
+            } else {
+              importProgress.value.push(`Skipping collection "${collection.collection}" because it already exists`);
+            }
+          }
+
+          for (const field of fields) {
+            if (allCollections.some(c => c.collection === field.collection) && !fieldsStore.getField(field.collection, field.field)) {
+              await importField(field);
             }
           }
         }
 
-        if (dm.relations instanceof Array) {
-          for (const relation of dm.relations) {
-            importProgress.value.push(`Importing relation "${relation.collection}-${relation.field}-${relation.related_collection}"`);
-
-            try {
-              await api.post('/relations', relation);
-            } catch (err: any) {
-              if (stopOnError.value) {
-                throw err;
-              }
-            }
+        for (const relation of relations) {
+          if (selections.value.includes(relation.collection) || selections.value.includes(relation.related_collection || '')) {
+            await importRelation(relation);
           }
         }
 
