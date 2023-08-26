@@ -52,14 +52,30 @@
 
 		<div class="schema-management">
 			<v-checkbox
-				v-model="checkAll"
-				@update:model-value="toggleAll"
-				label="Select all"
+				v-model="isAllChecked"
+				label="Select all collections"
+				class="collection-item"
+			/>
+			<v-checkbox
+				v-model="isAllSystemChecked"
+				label="Select all system collections"
 				class="collection-item"
 			/>
 			<div class="collection-list">
 				<collection-item
 					v-for="col in rootCollections"
+					:key="col.collection"
+					:collection="col"
+					:collections="collections"
+					:selections="selections"
+					@update:selections="selections = $event"
+				/>
+			</div>
+
+			<div class="collection-list">
+				<div class="system-collections-title">System Collections</div>
+				<collection-item
+					v-for="col in rootSystemCollections"
 					:key="col.collection"
 					:collection="col"
 					:collections="collections"
@@ -149,17 +165,45 @@ export default defineComponent({
 
 		const collections = computed<Collection[]>(() => (
 			sortBy(
-				collectionsStore.allCollections.filter((c: Collection) => c.meta),
+				collectionsStore.collections.filter((c: Collection) => c.meta),
 				['meta.sort', 'collection']
 			)
 		));
 
 		const rootCollections = computed(() => {
-			return collections.value.filter((collection) => !collection.meta?.group);
+			return collections.value.filter((collection) => !collection.meta?.group && !collection.collection.startsWith('directus_'));
+		});
+		const rootSystemCollections = computed(() => {
+			return collections.value.filter((collection) => !collection.meta?.group && collection.collection.startsWith('directus_'));
 		});
 
 		const selections = ref<string[]>([]);
-		const checkAll = ref(false);
+		const isAllChecked = computed<boolean>({
+			get() {
+				return collections.value.filter(c => !c.collection.startsWith('directus_')).every(c => selections.value.includes(c.collection));
+			},
+			set(checked) {
+				if (checked) {
+					const oldSelections = selections.value;
+					selections.value = collections.value.filter(c => !c.collection.startsWith('directus_') || oldSelections.includes(c.collection)).map(c => c.collection);
+				} else {
+					selections.value = selections.value.filter(c => c.startsWith('directus_'));
+				}
+			}
+		});
+		const isAllSystemChecked = computed<boolean>({
+			get() {
+				return collections.value.filter(c => c.collection.startsWith('directus_')).every(c => selections.value.includes(c.collection));
+			},
+			set(checked) {
+				if (checked) {
+					const oldSelections = selections.value;
+					selections.value = collections.value.filter(c => c.collection.startsWith('directus_') || oldSelections.includes(c.collection)).map(c => c.collection);
+				} else {
+					selections.value = selections.value.filter(c => !c.startsWith('directus_'));
+				}
+			}
+		});
 
 		const showProgress = ref(false);
 		const importProgress = ref<string[]>([]);
@@ -176,8 +220,10 @@ export default defineComponent({
 		return {
 			collections,
 			rootCollections,
+			rootSystemCollections,
 			selections,
-			checkAll,
+			isAllChecked,
+			isAllSystemChecked,
 			showProgress,
 			importProgress,
 			loading,
@@ -189,13 +235,12 @@ export default defineComponent({
 			exportSchema,
 			importSchema,
 			importSchemaFromCode,
-			toggleAll,
 			loadSchema,
 		};
 
 		function exportSchema(download: boolean) {
 			const exportCollections = collections.value
-				.map(({ collection, meta }) => ({ collection, meta, schema: {} }))
+				.map(({ collection, meta, schema }) => ({ collection, meta, schema: schema !== null ? {} : null }))
 				.filter(c => selections.value.includes(c.collection));
 
 			const fields = selections.value
@@ -297,14 +342,6 @@ export default defineComponent({
 			}
 		}
 
-		function toggleAll(checked: boolean) {
-			if (checked) {
-				selections.value = collections.value.filter(c => c.schema !== null).map(c => c.collection);
-			} else {
-				selections.value = [];
-			}
-		}
-
 		async function loadSchema(dataModel: DataModel) {
 			importWizard.value?.resetState(dataModel);
 		}
@@ -337,6 +374,11 @@ export default defineComponent({
 
 	.collection-list {
 		margin-top: 20px;
+	}
+
+	.system-collections-title {
+		font-weight: 700;
+		margin: 16px 0 8px 0;
 	}
 }
 </style>

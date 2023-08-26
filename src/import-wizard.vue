@@ -327,7 +327,7 @@ export default defineComponent({
       const collections = dm.collections?.filter(c => collectionSelections.value.includes(c.collection)) || [];
       const fields = dm.fields || [];
       const relations = dm.relations?.filter(r => relationsSelections.value.includes(`${r.collection}-${r.field}-${r.related_collection}`)) || [];
-      const allCollections: Collection[] = collectionsStore.allCollections;
+      const allCollections: Collection[] = collectionsStore.collections;
 
       try {
         for (const collection of collections) {
