@@ -28,16 +28,16 @@
         </v-card-text>
 
         <v-card-actions>
-          <v-button v-if="state === State.CONFIGURE" secondary @click="dispatch(Action.BACK)">
+          <v-button secondary @click="dispatch(Action.BACK)">
             Cancel
           </v-button>
-          <v-button v-if="state === State.CONFIGURE" @click="dispatch(Action.NEXT)">
+          <v-button @click="dispatch(Action.NEXT)">
             Next
           </v-button>
         </v-card-actions>
       </template>
 
-      <template v-if="state === State.SELECT">
+      <template v-if="state === State.SELECT_COLLECTION">
         <v-card-title>Select the collections you want to import</v-card-title>
 
         <v-card-text>
@@ -46,7 +46,7 @@
             block
             class="collection-item"
             :value="collection.collection"
-            v-model="selections"
+            v-model="collectionSelections"
           >
             <span>
               <v-icon
@@ -60,11 +60,36 @@
         </v-card-text>
 
         <v-card-actions>
-          <v-button v-if="state === State.SELECT" secondary @click="dispatch(Action.BACK)">
+          <v-button secondary @click="dispatch(Action.BACK)">
             Back
           </v-button>
-          <v-button v-if="state === State.SELECT" @click="dispatch(Action.IMPORT)">
-            Import
+          <v-button @click="dispatch(Action.NEXT)">
+            Next
+          </v-button>
+        </v-card-actions>
+      </template>
+
+      <template v-if="state === State.SELECT_RELATION">
+        <v-card-title>Select the relations you want to import</v-card-title>
+
+        <v-card-text>
+          <v-checkbox
+            v-for="relation in dataModel.relations"
+            block
+            class="collection-item"
+            :value="`${relation.collection}-${relation.field}-${relation.related_collection}`"
+            v-model="relationsSelections"
+          >
+            <span class="collection-name">{{ `${relation.collection}-${relation.field}-${relation.related_collection}` }}</span>
+          </v-checkbox>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-button secondary @click="dispatch(Action.BACK)">
+            Back
+          </v-button>
+          <v-button @click="dispatch(Action.IMPORT)">
+            Next
           </v-button>
         </v-card-actions>
       </template>
@@ -77,7 +102,7 @@
         </v-card-text>
 
         <v-card-actions>
-          <v-button v-if="state === State.IMPORTING" :loading="loading" @click="active = false">
+          <v-button :loading="loading" @click="active = false">
             Done
           </v-button>
         </v-card-actions>
@@ -94,7 +119,8 @@ import { DataModel } from './types';
 
 enum State {
   CONFIGURE = 'configure',
-  SELECT = 'select',
+  SELECT_COLLECTION = 'select_collection',
+  SELECT_RELATION = 'select_relation',
   IMPORTING = 'importing',
 }
 
@@ -139,7 +165,8 @@ export default defineComponent({
     const state = ref<State>(State.CONFIGURE);
 
     const dataModel = ref<DataModel>({});
-    const selections = ref<string[]>([]);
+    const collectionSelections = ref<string[]>([]);
+    const relationsSelections = ref<string[]>([]);
 
     const mode = ref<Mode>(Mode.NEW_ONLY);
     const stopOnError = ref(false);
@@ -154,7 +181,8 @@ export default defineComponent({
       active,
       state,
       dataModel,
-      selections,
+      collectionSelections,
+      relationsSelections,
       mode,
       stopOnError,
       importProgress,
@@ -168,7 +196,8 @@ export default defineComponent({
       state.value = State.CONFIGURE;
 
       dataModel.value = dm;
-      selections.value = dm.collections?.map(c => c.collection) || [];
+      collectionSelections.value = dm.collections?.map(c => c.collection) || [];
+      relationsSelections.value = dm.relations?.map(r => `${r.collection}-${r.field}-${r.related_collection}`) || [];
 
       mode.value = Mode.NEW_ONLY;
       stopOnError.value = false;
@@ -182,12 +211,19 @@ export default defineComponent({
         if (action === Action.BACK) {
           active.value = false;
         } else if (action === Action.NEXT) {
-          state.value = State.SELECT;
+          state.value = State.SELECT_COLLECTION;
         }
       }
-      if (state.value === State.SELECT) {
+      else if (state.value === State.SELECT_COLLECTION) {
         if (action === Action.BACK) {
           state.value = State.CONFIGURE;
+        } else if (action === Action.NEXT) {
+          state.value = State.SELECT_RELATION;
+        }
+      }
+      else if (state.value === State.SELECT_RELATION) {
+        if (action === Action.BACK) {
+          state.value = State.SELECT_COLLECTION;
         } else if (action === Action.IMPORT) {
           state.value = State.IMPORTING;
           loadSchema();
@@ -247,9 +283,9 @@ export default defineComponent({
       loading.value = true;
       importProgress.value = ['Start importing...'];
       const dm = dataModel.value;
-      const collections = dm.collections?.filter(c => selections.value.includes(c.collection)) || [];
+      const collections = dm.collections?.filter(c => collectionSelections.value.includes(c.collection)) || [];
       const fields = dm.fields || [];
-      const relations = dm.relations || [];
+      const relations = dm.relations?.filter(r => relationsSelections.value.includes(`${r.collection}-${r.field}-${r.related_collection}`)) || [];
       const allCollections: Collection[] = collectionsStore.allCollections;
 
       try {
