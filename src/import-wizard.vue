@@ -351,7 +351,11 @@ export default defineComponent({
         }
 
         for (const relation of relations) {
-          await importRelation(relation);
+          if (relationsStore.getRelationsForField(relation.collection, relation.field).length === 0) {
+            await importRelation(relation);
+          } else {
+            importProgress.value.push(`Skipping relation "${relation.collection}-${relation.field}-${relation.related_collection}" because it already exists`);
+          }
         }
 
         importProgress.value.push('Done');
