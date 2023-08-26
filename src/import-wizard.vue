@@ -41,22 +41,33 @@
         <v-card-title>Select the collections you want to import</v-card-title>
 
         <v-card-text>
-          <v-checkbox
-            v-for="collection in dataModel.collections"
-            block
-            class="collection-item"
-            :value="collection.collection"
-            v-model="collectionSelections"
-          >
-            <span>
-              <v-icon
-                :color="collection.meta?.hidden ? 'var(--foreground-subdued)' : collection.meta?.color ?? 'var(--primary)'"
-                class="collection-icon"
-                :name="collection.meta?.hidden ? 'visibility_off' : (collection.meta?.icon || 'label')"
-              />
-              <span class="collection-name" :class="{ hidden: collection.meta?.hidden }">{{ collection.meta?.collection }}</span>
-            </span>
-          </v-checkbox>
+          <template v-if="dataModel.collections?.length">
+            <v-checkbox
+              v-model="checkAllCollections"
+              label="Select all"
+              class="collection-item"
+            />
+            <v-checkbox
+              v-for="collection in dataModel.collections"
+              block
+              class="collection-item"
+              :value="collection.collection"
+              v-model="collectionSelections"
+            >
+              <span>
+                <v-icon
+                  :color="collection.meta?.hidden ? 'var(--foreground-subdued)' : collection.meta?.color ?? 'var(--primary)'"
+                  class="collection-icon"
+                  :name="collection.meta?.hidden ? 'visibility_off' : (collection.meta?.icon || 'label')"
+                />
+                <span class="collection-name" :class="{ hidden: collection.meta?.hidden }">{{ collection.meta?.collection }}</span>
+              </span>
+            </v-checkbox>
+          </template>
+
+          <template v-else>
+            <p>No collections found</p>
+          </template>
         </v-card-text>
 
         <v-card-actions>
@@ -73,15 +84,26 @@
         <v-card-title>Select the relations you want to import</v-card-title>
 
         <v-card-text>
-          <v-checkbox
-            v-for="relation in dataModel.relations"
-            block
-            class="collection-item"
-            :value="`${relation.collection}-${relation.field}-${relation.related_collection}`"
-            v-model="relationsSelections"
-          >
-            <span class="collection-name">{{ `${relation.collection}-${relation.field}-${relation.related_collection}` }}</span>
-          </v-checkbox>
+          <template v-if="dataModel.collections?.length">
+            <v-checkbox
+              v-model="checkAllRelations"
+              label="Select all"
+              class="collection-item"
+            />
+            <v-checkbox
+              v-for="r in dataModel.relations"
+              block
+              class="collection-item"
+              :value="`${r.collection}-${r.field}-${r.related_collection}`"
+              v-model="relationsSelections"
+            >
+              <span class="collection-name">{{ `${r.collection} - ${r.field} - ${r.related_collection}` }}</span>
+            </v-checkbox>
+          </template>
+
+          <template v-else>
+            <p>No relations found</p>
+          </template>
         </v-card-text>
 
         <v-card-actions>
@@ -112,7 +134,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { computed, defineComponent, ref } from 'vue';
 import { useStores, useApi } from '@directus/extensions-sdk';
 import { Collection, Field, Relation } from '@directus/shared/types';
 import { DataModel } from './types';
@@ -141,12 +163,12 @@ export default defineComponent({
       {
         value: Mode.NEW_ONLY,
         label: 'Only create new collections',
-        tooltip: 'This mode will only create new collections along with their fields and relations. If a collection already exists, an error will be thrown. Disable the option "Stop on error" to continue importing.',
+        tooltip: 'This mode will only create new collections. If a collection already exists, it will be skipped.',
       },
       {
         value: Mode.NEW_AND_PATCH,
         label: 'Create new collections and patch existing ones',
-        tooltip: 'This mode will create new collections along with their fields and relations. If a collection already exists, it will be patched with the new fields and relations. Any existing fields or relations will be left untouched.',
+        tooltip: 'This mode will create new collections. If a collection already exists, it will be patched with the new fields. Any existing fields will be left untouched.',
       },
     ];
 
@@ -174,6 +196,23 @@ export default defineComponent({
     const importProgress = ref<string[]>([]);
     const loading = ref(false);
 
+    const checkAllCollections = computed<boolean>({
+      get() {
+        return collectionSelections.value.length === dataModel.value.collections?.length;
+      },
+      set(value) {
+        collectionSelections.value = value ? dataModel.value.collections?.map(c => c.collection) || [] : [];
+      },
+    });
+    const checkAllRelations = computed<boolean>({
+      get() {
+        return relationsSelections.value.length === dataModel.value.relations?.length;
+      },
+      set(value) {
+        relationsSelections.value = value ? dataModel.value.relations?.map(r => `${r.collection}-${r.field}-${r.related_collection}`) || [] : [];
+      },
+    });
+
     return {
       MODES,
       State,
@@ -187,6 +226,8 @@ export default defineComponent({
       stopOnError,
       importProgress,
       loading,
+      checkAllCollections,
+      checkAllRelations,
       resetState,
       dispatch,
     };
@@ -299,8 +340,12 @@ export default defineComponent({
 
         if (mode.value === Mode.NEW_AND_PATCH) {
           for (const field of fields) {
-            if (allCollections.some(c => c.collection === field.collection) && !fieldsStore.getField(field.collection, field.field)) {
-              await importField(field);
+            if (allCollections.some(c => c.collection === field.collection)) {
+              if (!fieldsStore.getField(field.collection, field.field)) {
+                await importField(field);
+              } else {
+                importProgress.value.push(`Skipping field "${field.collection}-${field.field}" because it already exists`);
+              }
             }
           }
         }
