@@ -330,11 +330,32 @@ export default defineComponent({
       const allCollections: Collection[] = collectionsStore.collections;
 
       try {
-        for (const collection of collections) {
-          if (!allCollections.some(c => c.collection === collection.collection)) {
-            await importCollection(collection, fields.filter(f => f.collection === collection.collection));
-          } else {
-            importProgress.value.push(`Skipping collection "${collection.collection}" because it already exists`);
+        const importedCollections: string[] = [];
+        let lastLength: number | null = null;
+        while (importedCollections.length !== lastLength) {
+          lastLength = importedCollections.length;
+
+          for (const collection of collections) {
+            if (importedCollections.includes(collection.collection)) {
+              continue;
+            }
+            if (collection.meta?.group) {
+              const { group } = collection.meta;
+              if (!collections.some(c => c.collection === group) && !allCollections.some(c => c.collection === group)) {
+                importedCollections.push(collection.collection);
+                importProgress.value.push(`Skipping collection "${collection.collection}" because its group "${group}" does not exist`);
+                continue;
+              }
+              if (!importedCollections.includes(group) && !allCollections.some(c => c.collection === group)) {
+                continue;
+              }
+            }
+            if (!allCollections.some(c => c.collection === collection.collection)) {
+              await importCollection(collection, fields.filter(f => f.collection === collection.collection));
+            } else {
+              importProgress.value.push(`Skipping collection "${collection.collection}" because it already exists`);
+            }
+            importedCollections.push(collection.collection);
           }
         }
 
