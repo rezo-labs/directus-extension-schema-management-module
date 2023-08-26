@@ -250,23 +250,18 @@ export default defineComponent({
       const collections = dm.collections?.filter(c => selections.value.includes(c.collection)) || [];
       const fields = dm.fields || [];
       const relations = dm.relations || [];
+      const allCollections: Collection[] = collectionsStore.allCollections;
 
       try {
-        if (mode.value === Mode.NEW_ONLY) {
-          for (const collection of collections) {
+        for (const collection of collections) {
+          if (!allCollections.some(c => c.collection === collection.collection)) {
             await importCollection(collection, fields.filter(f => f.collection === collection.collection));
+          } else {
+            importProgress.value.push(`Skipping collection "${collection.collection}" because it already exists`);
           }
-        } else if (mode.value === Mode.NEW_AND_PATCH) {
-          const allCollections: Collection[] = collectionsStore.allCollections;
+        }
 
-          for (const collection of collections) {
-            if (!allCollections.some(c => c.collection === collection.collection)) {
-              await importCollection(collection, fields.filter(f => f.collection === collection.collection));
-            } else {
-              importProgress.value.push(`Skipping collection "${collection.collection}" because it already exists`);
-            }
-          }
-
+        if (mode.value === Mode.NEW_AND_PATCH) {
           for (const field of fields) {
             if (allCollections.some(c => c.collection === field.collection) && !fieldsStore.getField(field.collection, field.field)) {
               await importField(field);
@@ -275,9 +270,7 @@ export default defineComponent({
         }
 
         for (const relation of relations) {
-          if (selections.value.includes(relation.collection) || selections.value.includes(relation.related_collection || '')) {
-            await importRelation(relation);
-          }
+          await importRelation(relation);
         }
 
         importProgress.value.push('Done');
