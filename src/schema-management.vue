@@ -1,8 +1,12 @@
 <template>
 	<private-view title="Schema Management">
+		<template #navigation>
+			<navigation />
+		</template>
+
 		<template #title-outer:prepend>
 			<v-button class="header-icon" rounded disabled icon secondary>
-				<v-icon name="schema" />
+				<v-icon name="list_alt" />
 			</v-button>
 		</template>
 
@@ -85,21 +89,6 @@
 			</div>
 		</div>
 
-		<v-dialog v-model="showProgress">
-			<v-card>
-				<v-card-title>Import Status</v-card-title>
-				<v-card-text>
-					<div v-for="(progress, idx) in importProgress" :key="idx">{{ progress }}</div>
-				</v-card-text>
-
-				<v-card-actions>
-					<v-button :loading="loading" @click="showProgress = false">
-						Done
-					</v-button>
-				</v-card-actions>
-			</v-card>
-		</v-dialog>
-
 		<v-dialog v-model="showCode" @esc="showCode = false">
 			<v-card>
 				<v-card-title>Schema</v-card-title>
@@ -142,13 +131,19 @@ import { computed, defineComponent, ref } from 'vue';
 import { useStores } from '@directus/extensions-sdk';
 import { Collection, Field, Relation } from '@directus/shared/types';
 import { sortBy } from 'lodash';
+import Navigation from './navigation.vue';
 import CollectionItem from './collection-item.vue';
 import Presets from './presets.vue';
 import ImportWizard from './import-wizard.vue';
 import { DataModel } from './types';
 
 export default defineComponent({
-	components: { CollectionItem, Presets, ImportWizard },
+	components: {
+		Navigation,
+		CollectionItem,
+		Presets,
+		ImportWizard,
+	},
 	setup() {
 		const {
 			useCollectionsStore,
@@ -204,10 +199,6 @@ export default defineComponent({
 			}
 		});
 
-		const showProgress = ref(false);
-		const importProgress = ref<string[]>([]);
-		const loading = ref(false);
-
 		const showCode = ref(false);
 		const code = ref('');
 		const isImport = ref(false);
@@ -223,9 +214,6 @@ export default defineComponent({
 			selections,
 			isAllChecked,
 			isAllSystemChecked,
-			showProgress,
-			importProgress,
-			loading,
 			showCode,
 			code,
 			isImport,
