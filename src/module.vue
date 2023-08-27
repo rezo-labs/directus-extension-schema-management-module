@@ -53,7 +53,7 @@
 		<div class="schema-management">
 			<v-checkbox
 				v-model="isAllChecked"
-				label="Select all collections"
+				label="Select all non-system collections"
 				class="collection-item"
 			/>
 			<v-checkbox
@@ -139,7 +139,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, ref } from 'vue';
-import { useStores, useApi } from '@directus/extensions-sdk';
+import { useStores } from '@directus/extensions-sdk';
 import { Collection, Field, Relation } from '@directus/shared/types';
 import { sortBy } from 'lodash';
 import CollectionItem from './collection-item.vue';
@@ -156,7 +156,6 @@ export default defineComponent({
 			useRelationsStore,
 			useNotificationsStore,
 		} = useStores();
-		const api = useApi();
 
 		const collectionsStore = useCollectionsStore();
 		const fieldsStore = useFieldsStore();
