@@ -1,5 +1,9 @@
 <template>
 	<private-view title="Schema Management">
+		<template #navigation>
+			<navigation />
+		</template>
+
 		<template #title-outer:prepend>
 			<v-button class="header-icon" rounded disabled icon secondary>
 				<v-icon name="schema" />
@@ -142,13 +146,19 @@ import { computed, defineComponent, ref } from 'vue';
 import { useStores } from '@directus/extensions-sdk';
 import { Collection, Field, Relation } from '@directus/shared/types';
 import { sortBy } from 'lodash';
+import Navigation from './navigation.vue';
 import CollectionItem from './collection-item.vue';
 import Presets from './presets.vue';
 import ImportWizard from './import-wizard.vue';
 import { DataModel } from './types';
 
 export default defineComponent({
-	components: { CollectionItem, Presets, ImportWizard },
+	components: {
+		Navigation,
+		CollectionItem,
+		Presets,
+		ImportWizard,
+	},
 	setup() {
 		const {
 			useCollectionsStore,

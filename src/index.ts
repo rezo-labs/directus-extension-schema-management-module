@@ -1,5 +1,6 @@
 import { defineModule } from '@directus/extensions-sdk';
-import ModuleComponent from './module.vue';
+import SchemaManagement from './schema-management.vue';
+import RolesManagement from './roles-management.vue';
 
 export default defineModule({
 	id: 'schema-management-module',
@@ -7,8 +8,20 @@ export default defineModule({
 	icon: 'schema',
 	routes: [
 		{
+			name: 'schema-management-module',
 			path: '',
-			component: ModuleComponent,
+			component: SchemaManagement,
+			beforeEnter() {
+				return `/schema-management-module/schema`;
+			},
+		},
+		{
+			path: 'schema',
+			component: SchemaManagement,
+		},
+		{
+			path: 'roles',
+			component: RolesManagement,
 		},
 	],
 	preRegisterCheck(user) {
