@@ -120,7 +120,14 @@
         <v-card-title>Importing</v-card-title>
 
         <v-card-text>
-          <div v-for="(progress, idx) in importProgress" :key="idx">{{ progress }}</div>
+          <div
+            v-for="(progress, idx) in importProgress"
+            :key="idx"
+            class="import-message"
+            :class="progress.type"
+          >
+            {{ progress.message }}
+          </div>
         </v-card-text>
 
         <v-card-actions>
@@ -193,7 +200,10 @@ export default defineComponent({
     const mode = ref<Mode>(Mode.NEW_ONLY);
     const stopOnError = ref(false);
 
-    const importProgress = ref<string[]>([]);
+    const importProgress = ref<{
+      message: string;
+      type: 'success' | 'info' | 'warning' | 'error';
+    }[]>([]);
     const loading = ref(false);
 
     const checkAllCollections = computed<boolean>({
@@ -272,69 +282,105 @@ export default defineComponent({
       }
     }
 
-    async function importCollection(collection: Collection, fields: Field[]) {
-      importProgress.value.push(`Importing collection "${collection.collection}"`);
-
+    async function tryImport(fn: () => Promise<void>) {
       try {
+        await fn();
+      } catch (err: any) {
+        if (stopOnError.value) {
+          throw err;
+        } else {
+          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
+          importProgress.value.push({
+            message: 'Error: ' + message,
+            type: 'error',
+          });
+        }
+      }
+    }
+
+    async function importCollection(collection: Collection, fields: Field[]) {
+      importProgress.value.push({
+        message: `Importing collection "${collection.collection}"`,
+        type: 'info',
+      });
+
+      await tryImport(async () => {
         await api.post('/collections', {
           ...collection,
           fields,
         });
-      } catch (err: any) {
-        if (stopOnError.value) {
-          throw err;
-        } else {
-          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
-          importProgress.value.push('Error: ' + message);
-        }
-      }
+      });
     }
 
     async function importField(field: Field) {
-      importProgress.value.push(`Importing field "${field.collection}-${field.field}"`);
+      importProgress.value.push({
+        message: `Importing field "${field.collection}-${field.field}"`,
+        type: 'info',
+      });
 
-      try {
+      await tryImport(async () => {
         await api.post(`/fields/${field.collection}`, field);
-      } catch (err: any) {
-        if (stopOnError.value) {
-          throw err;
-        } else {
-          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
-          importProgress.value.push('Error: ' + message);
-        }
-      }
+      });
     }
 
     async function importRelation(relation: Relation) {
-      importProgress.value.push(`Importing relation "${relation.collection}-${relation.field}-${relation.related_collection}"`);
+      importProgress.value.push({
+        message: `Importing relation "${relation.collection}-${relation.field}-${relation.related_collection}"`,
+        type: 'info',
+      });
 
-      try {
+      await tryImport(async () => {
         await api.post('/relations', relation);
-      } catch (err: any) {
-        if (stopOnError.value) {
-          throw err;
-        } else {
-          const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
-          importProgress.value.push('Error: ' + message);
-        }
-      }
+      });
     }
 
     async function loadSchema() {
       loading.value = true;
-      importProgress.value = ['Start importing...'];
+      importProgress.value = [
+        {
+          message: 'Start importing...',
+          type: 'info',
+        },
+      ];
       const dm = dataModel.value;
       const collections = dm.collections?.filter(c => collectionSelections.value.includes(c.collection)) || [];
       const fields = dm.fields || [];
       const relations = dm.relations?.filter(r => relationsSelections.value.includes(`${r.collection}-${r.field}-${r.related_collection}`)) || [];
-      const allCollections: Collection[] = collectionsStore.allCollections;
+      const allCollections: Collection[] = collectionsStore.collections;
 
       try {
-        for (const collection of collections) {
-          if (!allCollections.some(c => c.collection === collection.collection)) {
-            await importCollection(collection, fields.filter(f => f.collection === collection.collection));
-          } else {
-            importProgress.value.push(`Skipping collection "${collection.collection}" because it already exists`);
+        const importedCollections: string[] = [];
+        let lastLength: number | null = null;
+        while (importedCollections.length !== lastLength) {
+          lastLength = importedCollections.length;
+
+          for (const collection of collections) {
+            if (importedCollections.includes(collection.collection)) {
+              continue;
+            }
+            if (collection.meta?.group) {
+              const { group } = collection.meta;
+              if (!collections.some(c => c.collection === group) && !allCollections.some(c => c.collection === group)) {
+                importedCollections.push(collection.collection);
+                importProgress.value.push({
+                  message: `Skipping collection "${collection.collection}" because its group "${group}" does not exist`,
+                  type: 'warning',
+                });
+                continue;
+              }
+              if (!importedCollections.includes(group) && !allCollections.some(c => c.collection === group)) {
+                continue;
+              }
+            }
+            if (!allCollections.some(c => c.collection === collection.collection)) {
+              await importCollection(collection, fields.filter(f => f.collection === collection.collection));
+            } else {
+              importProgress.value.push({
+                message: `Skipping collection "${collection.collection}" because it already exists`,
+                type: 'warning',
+              });
+            }
+            importedCollections.push(collection.collection);
           }
         }
 
@@ -344,7 +390,10 @@ export default defineComponent({
               if (!fieldsStore.getField(field.collection, field.field)) {
                 await importField(field);
               } else {
-                importProgress.value.push(`Skipping field "${field.collection}-${field.field}" because it already exists`);
+                importProgress.value.push({
+                  message: `Skipping field "${field.collection}-${field.field}" because it already exists`,
+                  type: 'warning',
+                });
               }
             }
           }
@@ -354,14 +403,23 @@ export default defineComponent({
           if (relationsStore.getRelationsForField(relation.collection, relation.field).length === 0) {
             await importRelation(relation);
           } else {
-            importProgress.value.push(`Skipping relation "${relation.collection}-${relation.field}-${relation.related_collection}" because it already exists`);
+            importProgress.value.push({
+              message: `Skipping relation "${relation.collection}-${relation.field}-${relation.related_collection}" because it already exists`,
+              type: 'warning',
+            });
           }
         }
 
-        importProgress.value.push('Done');
+        importProgress.value.push({
+          message: 'Done',
+          type: 'success',
+        });
       } catch (err: any) {
         const message = err.response?.data?.errors?.[0]?.message || err.message || undefined;
-        importProgress.value.push('Error: ' + message);
+        importProgress.value.push({
+          message: 'Error: ' + message,
+          type: 'error',
+        });
       } finally {
         await Promise.all([
           collectionsStore.hydrate(),
@@ -376,7 +434,7 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-.v-card {
+.container .v-card {
 	--v-card-max-height: 100vh;
 	overflow: auto;
 
@@ -395,5 +453,25 @@ export default defineComponent({
 
 .collection-name.hidden {
   color: var(--foreground-subdued);
+}
+
+.import-message {
+  margin-bottom: 8px;
+
+  &.success {
+    color: var(--success);
+  }
+
+  &.info {
+    color: var(--foreground);
+  }
+
+  &.warning {
+    color: var(--warning);
+  }
+
+  &.error {
+    color: var(--danger);
+  }
 }
 </style>

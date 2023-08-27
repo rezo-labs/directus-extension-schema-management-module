@@ -3,7 +3,6 @@
     <v-checkbox
       block
       class="collection-item"
-      :disabled="!collection.schema"
       :value="collection.collection"
       :model-value="selections"
       @update:model-value="$emit('update:selections', $event)"
