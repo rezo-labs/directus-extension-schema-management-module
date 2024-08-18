@@ -114,8 +114,8 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useStores, useApi } from '@directus/extensions-sdk';
-import { Role, Permission } from '@directus/types';
-import { RolesModel } from './types';
+import { Permission } from '@directus/types';
+import { RolesModel, AppRole, AppPolicy, Access } from './types';
 import Navigation from './navigation.vue';
 
 export default defineComponent({
@@ -129,7 +129,9 @@ export default defineComponent({
 
 		const api = useApi();
 		const { roles, fetchRoles } = useRoles();
+		const { policies, fetchPolicies } = usePolicies();
 		const { permissions, fetchPermissions } = usePermissions();
+		const { accesses, fetchAccesses } = useAccesses();
 
 		const selections = ref<string[]>([]);
 
@@ -156,7 +158,7 @@ export default defineComponent({
 		};
 
 		function useRoles() {
-			const roles = ref<Role[]>([]);
+			const roles = ref<AppRole[]>([]);
 
 			fetchRoles();
 
@@ -165,6 +167,19 @@ export default defineComponent({
 			async function fetchRoles() {
 				const response = await api.get('/roles');
 				roles.value = response.data.data;
+			}
+		}
+
+		function usePolicies() {
+			const policies = ref<AppPolicy[]>([]);
+
+			fetchPolicies();
+
+			return { policies, fetchPolicies };
+
+			async function fetchPolicies() {
+				const response = await api.get('/policies');
+				policies.value = response.data.data;
 			}
 		}
 
@@ -181,18 +196,40 @@ export default defineComponent({
 			}
 		}
 
+		function useAccesses() {
+			const accesses = ref<Access[]>([]);
+
+			fetchAccesses();
+
+			return { accesses, fetchAccesses };
+
+			async function fetchAccesses() {
+				const response = await api.get('/access');
+				accesses.value = response.data.data;
+			}
+		}
+
 		function exportRoles(download: boolean) {
 			const exportedRoles = roles.value
 				.filter(c => selections.value.includes(c.id))
-				.map((role) => ({ ...role, users: [] }));
+				.map((role) => ({ ...role, policies: [], users: [], children: [] }));
+			
+			const exportedAccess = accesses.value
+				.filter(a => exportedRoles.some(r => r.id === a.role));
+
+			const exportedPolicies = policies.value
+				.filter(p => exportedAccess.some(a => a.policy === p.id))
+				.map((p) => ({ ...p, roles: [], users: [], permissions: [] }));
 
 			const exportedPermissions = permissions.value
-				.filter(p => exportedRoles.some(r => r.id === p.role))
+				.filter(p => exportedPolicies.some(po => po.id === p.policy))
 				.map(({ id, ...p }) => p);
 
 			const rolesModel: RolesModel = {
 				roles: exportedRoles,
+				policies: exportedPolicies,
 				permissions: exportedPermissions,
+				access: exportedAccess,
 			};
 
 			const modelContent = JSON.stringify(rolesModel, null, 4);
@@ -269,17 +306,28 @@ export default defineComponent({
 			showProgress.value = true;
 			importProgress.value = ['Start importing...'];
 
-			const { roles, permissions } = rolesModel;
+			const { roles, policies, permissions, access } = rolesModel;
 
 			try {
+				// TODO: import role in order from parent to child
 				if (Array.isArray(roles) && roles.length > 0) {
 					importProgress.value.push('Importing roles...');
 					await api.post('/roles', roles);
 				}
 
+				if (Array.isArray(policies) && policies.length > 0) {
+					importProgress.value.push('Importing policies...');
+					await api.post('/policies', policies);
+				}
+
 				if (Array.isArray(permissions) && permissions.length > 0) {
 					importProgress.value.push('Importing permissions...');
 					await api.post('/permissions', permissions);
+				}
+
+				if (Array.isArray(access) && access.length > 0) {
+					importProgress.value.push('Importing access...');
+					await api.post('/access', access);
 				}
 
 				importProgress.value.push('Done');
@@ -289,7 +337,9 @@ export default defineComponent({
 			} finally {
 				await Promise.all([
 					fetchRoles(),
+					fetchPolicies(),
 					fetchPermissions(),
+					fetchAccesses(),
 				]);
 				loading.value = false;
 			}
