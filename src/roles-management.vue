@@ -212,7 +212,7 @@ export default defineComponent({
 		function exportRoles(download: boolean) {
 			const exportedRoles = roles.value
 				.filter(c => selections.value.includes(c.id))
-				.map((role) => ({ ...role, policies: [], users: [], children: [] }));
+				.map((role) => ({ ...role, parent: null, policies: [], users: [], children: [] }));
 			
 			const exportedAccess = accesses.value
 				.filter(a => exportedRoles.some(r => r.id === a.role));
