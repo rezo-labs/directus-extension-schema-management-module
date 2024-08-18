@@ -1,4 +1,4 @@
-import { Collection, Field, Relation, Role, Permission } from '@directus/shared/types';
+import { Collection, Field, Relation, Role, Permission } from '@directus/types';
 
 export type DataModel = {
 	collections?: Collection[];

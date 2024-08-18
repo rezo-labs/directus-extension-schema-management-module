@@ -114,7 +114,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useStores, useApi } from '@directus/extensions-sdk';
-import { Role, Permission } from '@directus/shared/types';
+import { Role, Permission } from '@directus/types';
 import { RolesModel } from './types';
 import Navigation from './navigation.vue';
 

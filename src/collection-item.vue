@@ -32,17 +32,17 @@
 
 <script lang="ts">
 import { defineComponent, PropType, computed } from 'vue';
-import { Collection } from '@directus/shared/types';
+import { AppCollection } from '@directus/types';
 
 export default defineComponent({
   name: 'CollectionItem',
   props: {
 		collection: {
-			type: Object as PropType<Collection>,
+			type: Object as PropType<AppCollection>,
 			required: true,
 		},
 		collections: {
-			type: Array as PropType<Collection[]>,
+			type: Array as PropType<AppCollection[]>,
 			required: true,
 		},
     selections: {

@@ -143,7 +143,7 @@
 <script lang="ts">
 import { computed, defineComponent, ref } from 'vue';
 import { useStores, useApi } from '@directus/extensions-sdk';
-import { Collection, Field, Relation } from '@directus/shared/types';
+import { Collection, Field, Relation } from '@directus/types';
 import { DataModel } from './types';
 
 enum State {
