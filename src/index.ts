@@ -25,6 +25,6 @@ export default defineModule({
 		},
 	],
 	preRegisterCheck(user) {
-		return user.role.admin_access === true;
+		return user.admin_access === true;
 	},
 });

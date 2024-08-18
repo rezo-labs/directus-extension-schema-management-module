@@ -129,7 +129,7 @@
 <script lang="ts">
 import { computed, defineComponent, ref } from 'vue';
 import { useStores } from '@directus/extensions-sdk';
-import { Collection, Field, Relation } from '@directus/shared/types';
+import { AppCollection, Field, Relation } from '@directus/types';
 import { sortBy } from 'lodash';
 import Navigation from './navigation.vue';
 import CollectionItem from './collection-item.vue';
@@ -157,9 +157,9 @@ export default defineComponent({
 		const relationsStore = useRelationsStore();
 		const notificationsStore = useNotificationsStore();
 
-		const collections = computed<Collection[]>(() => (
+		const collections = computed<AppCollection[]>(() => (
 			sortBy(
-				collectionsStore.collections.filter((c: Collection) => c.meta),
+				collectionsStore.collections.filter((c: AppCollection) => c.meta),
 				['meta.sort', 'collection']
 			)
 		));
